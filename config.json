@@ -24,9 +24,9 @@
   "faqFile": "./faq.md",
   "model": "claude-haiku-4-5-20251001",
   "llm": {
-    "baseUrl": "",
+    "baseUrl": "http://localhost:20128/v1",
     "apiKeyEnv": "NINEROUTER_API_KEY",
-    "model": ""
+    "model": "ZaloLab"
   },
   "userCooldownSec": 30,
   "minDelayMs": 2000,

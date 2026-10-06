@@ -158,6 +158,7 @@ async function answerViaOpenAICompat(question) {
       body: JSON.stringify({
         model: model || CONFIG.model,
         max_tokens: 300,
+        stream: false, // 9router mặc định trả SSE nếu không chỉ định
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: `<cau_hoi>${question.slice(0, 500)}</cau_hoi>` },
