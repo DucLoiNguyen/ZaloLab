@@ -1,0 +1,28 @@
+{
+  "dryRun": true,
+  "debug": true,
+  "logContent": true,
+  "discoveryMode": true,
+  "allowedGroups": [],
+  "allowedUsers": [],
+  "allowedUploaders": [],
+  "adminUid": "",
+  "triggerKeywords": ["/bot"],
+  "allowedExt": ["xlsx", "xls", "csv", "docx", "pdf"],
+  "maxFileMB": 10,
+  "tmpDir": "./tmp",
+  "outputDir": "./out",
+  "outputRetentionHours": 24,
+  "extractor": {
+    "command": "py",
+    "args": ["extract_contacts.py", "--input", "{input}", "--template", "cls_template_users.xlsx", "--output", "{outputFile}"],
+    "cwd": "C:/Users/Loind/Documents/GitHub/DataExtractionTool",
+    "timeoutMs": 180000
+  },
+  "faqFile": "./faq.md",
+  "model": "claude-haiku-4-5-20251001",
+  "userCooldownSec": 30,
+  "minDelayMs": 2000,
+  "maxDelayMs": 5000,
+  "maxActionsPerMinute": 6
+}
