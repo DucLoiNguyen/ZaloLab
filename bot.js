@@ -11,6 +11,8 @@ const CONFIG = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 CONFIG.allowedGroups ??= [];
 CONFIG.allowedUsers ??= [];
 CONFIG.allowedUploaders ??= [];
+CONFIG.requiredTags ??= [];
+CONFIG.escalateKeywords ??= [];
 if (!CONFIG.discoveryMode && CONFIG.allowedGroups.length === 0 && CONFIG.allowedUsers.length === 0) {
   console.log("[cảnh báo] chưa khai báo nhóm hay người dùng nào, tự bật chế độ khám phá.");
   CONFIG.discoveryMode = true;
@@ -142,9 +144,45 @@ ${FAQ}
 
 const lastAnswer = new Map();
 
+// Gọi mô hình qua endpoint tương thích OpenAI (9router, Hermes API server...) khi có CONFIG.llm.baseUrl
+async function answerViaOpenAICompat(question) {
+  const { baseUrl, apiKeyEnv, model } = CONFIG.llm;
+  const key = (apiKeyEnv && process.env[apiKeyEnv]) || "";
+  try {
+    const res = await fetch(baseUrl.replace(/\/$/, "") + "/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(key ? { authorization: `Bearer ${key}` } : {}),
+      },
+      body: JSON.stringify({
+        model: model || CONFIG.model,
+        max_tokens: 300,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `<cau_hoi>${question.slice(0, 500)}</cau_hoi>` },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      console.error("[LLM] HTTP", res.status);
+      return FALLBACK;
+    }
+    const data = await res.json();
+    const text = (data.choices?.[0]?.message?.content || "").trim();
+    if (!text || text.includes("[CHUYEN_NGUOI]")) return FALLBACK;
+    return text.slice(0, 800);
+  } catch (e) {
+    console.error("[LLM lỗi]", e.message);
+    return FALLBACK;
+  }
+}
+
 async function answerFaq(question) {
+  if (!FAQ) return FALLBACK;
+  if (CONFIG.llm?.baseUrl) return answerViaOpenAICompat(question);
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key || !FAQ) return FALLBACK;
+  if (!key) return FALLBACK;
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -254,6 +292,20 @@ api.listener.on("message", (m) => {
     const keyword = CONFIG.triggerKeywords.some((k) => content.toLowerCase().includes(k));
     // Trong nhóm cần tag/từ khóa; trong chat riêng với người được phép thì mọi tin văn bản đều được xử lý
     if (isGroup && !mentioned && !keyword) return;
+
+    // Guardrail: nếu khai báo requiredTags thì chỉ xử lý tin có chứa ít nhất một tag
+    const lower = content.toLowerCase();
+    if (CONFIG.requiredTags.length && !CONFIG.requiredTags.some((t) => lower.includes(t.toLowerCase()))) return;
+
+    // Guardrail: chủ đề nhạy cảm không để mô hình trả lời, chuyển cho admin
+    if (CONFIG.escalateKeywords.some((k) => lower.includes(k.toLowerCase()))) {
+      console.log("[chuyển người] tin nhạy cảm từ", sender);
+      enqueue(async () => {
+        await sendToAdmin(`Tin cần xử lý thủ công từ ${m.data?.dName || sender} (thread ${threadId}).`);
+        await say(FALLBACK, threadId, isGroup ? ThreadType.Group : ThreadType.User);
+      });
+      return;
+    }
 
     // Mỗi người chỉ được bot trả lời một lần trong khoảng cooldown
     const last = lastAnswer.get(sender) || 0;

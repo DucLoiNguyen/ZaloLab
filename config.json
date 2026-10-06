@@ -8,6 +8,8 @@
   "allowedUploaders": [],
   "adminUid": "",
   "triggerKeywords": ["/bot"],
+  "requiredTags": [],
+  "escalateKeywords": ["khiếu nại", "hoàn tiền", "lừa đảo", "kiện"],
   "allowedExt": ["xlsx", "xls", "csv", "docx", "pdf"],
   "maxFileMB": 10,
   "tmpDir": "./tmp",
@@ -21,6 +23,11 @@
   },
   "faqFile": "./faq.md",
   "model": "claude-haiku-4-5-20251001",
+  "llm": {
+    "baseUrl": "",
+    "apiKeyEnv": "NINEROUTER_API_KEY",
+    "model": ""
+  },
   "userCooldownSec": 30,
   "minDelayMs": 2000,
   "maxDelayMs": 5000,
