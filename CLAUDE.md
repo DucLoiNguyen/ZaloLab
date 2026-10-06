@@ -4,52 +4,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-ZaloLab is a single-file Zalo bot ([bot.js](bot.js), ESM, Node LTS, one dependency: the unofficial `zca-js`). It runs on a secondary Zalo account and does two things:
+ZaloLab is a Vietnamese-language Zalo FAQ chatbot. **The repo contains no application code**, only config templates and docs. The runtime lives outside the repo, inside WSL Ubuntu on the owner's Windows machine:
 
-1. Receives list files (xlsx/xls/csv/docx/pdf) from allowed uploaders, downloads them, runs an external Python extractor, and DMs the resulting `.xlsx` files to the admin.
-2. Answers FAQ questions (from [faq.md](faq.md)) when mentioned / a trigger keyword is used in an allowed group, or in DMs from allowed users — via the Anthropic Messages API, falling back to a fixed reply.
+```
+Zalo ──► zalo-platform plugin ──► Hermes Agent (profile cskh) ──► 9router (localhost:20128/v1) ──► Claude
+```
 
-The README ([README.md](README.md)) and code comments/logs are in Vietnamese; keep new user-facing text and logs in Vietnamese.
+- **Hermes Agent** (Nous Research) installed at `~/.hermes/hermes-agent`, profile `cskh` at `~/.hermes/profiles/cskh/`.
+- **zalo-platform** (community plugin, catalog-pinned SHA, official Zalo Bot API via `ZALO_BOT_TOKEN`) installed in the `cskh` profile.
+- **9router** (npm global, Node via nvm in WSL) serves an OpenAI-compatible endpoint; the model combo is `ZaloLab`.
 
-## Project roadmap (owner's original plan)
+The previous `zca-js` bot (`bot.js`, nick phụ, file extraction → `.xlsx`) was removed; last version is commit `03e5478`. The official Bot API can't receive files, so that feature is gone.
 
-`bot.js` is the current Zalo-only implementation. The broader plan is to move to an agent-based chatbot:
+README and docs are in Vietnamese; keep new user-facing text and docs in Vietnamese.
 
-1. Set up the Hermes agent on a VPS.
-2. Set up 9router, add a ChatGPT Plus or Claude account to it, and point Hermes at that source.
-3. Prepare the list of channels: Zalo, Teams, Facebook fanpage.
-4. Set up guardrails: answering rules so Hermes, acting as chatbot, auto-replies only to customer questions carrying a chosen tag.
+## Repo contents
 
-Guides: [docs/SETUP-VPS.md](docs/SETUP-VPS.md) (Hermes + 9router + channels) and [docs/GUARDRAILS.md](docs/GUARDRAILS.md). Only the `llm` config block in `bot.js` is implemented: when `config.llm.baseUrl` is set, `answerFaq` calls that OpenAI-compatible endpoint (e.g. 9router at `http://localhost:20128/v1`, key from the env var named by `llm.apiKeyEnv`); otherwise it calls the Anthropic API directly. Hermes, Teams and Fanpage integration don't exist in the repo yet.
+- [hermes/cskh/SOUL.md](hermes/cskh/SOUL.md): the canonical persona, guardrails and FAQ text. Deployed by copying to `~/.hermes/profiles/cskh/SOUL.md`; restart the gateway after changes. The FAQ is embedded here, so there's no separate FAQ file.
+- [hermes/cskh/config.zalo.example.yaml](hermes/cskh/config.zalo.example.yaml): config snippet for the profile (no secrets).
+- [docs/SETUP-VPS.md](docs/SETUP-VPS.md), [docs/GUARDRAILS.md](docs/GUARDRAILS.md).
 
-## Commands
+## Operating notes (WSL)
 
-- Install: `npm install` (use `npm.cmd` on Windows PowerShell if script execution is blocked)
-- Run: `node bot.js` — logs in via QR code on every start (no session persistence); scan with the secondary account
-- FAQ via AI: set `$env:ANTHROPIC_API_KEY` in PowerShell before running (never put it in code or `config.json`)
-- Stop: `Ctrl+C`
-- No build, lint, or test tooling exists (`npm test` is a placeholder). `package.json` must keep `"type": "module"`.
+Run WSL commands from PowerShell with `wsl -e bash <script>`; inline `bash -c '...'` loses quotes and `$VARS` to PowerShell, so put multi-line commands in a script file under the scratchpad.
 
-## Architecture
-
-Everything is in [bot.js](bot.js), driven by [config.json](config.json) (read once at startup; restart to apply changes). Flow of the `api.listener.on("message")` handler:
-
-1. Debug/`logContent` logging, then drop self messages (`m.isSelf`).
-2. `discoveryMode` — only prints thread/sender IDs and returns (auto-enabled if no `allowedGroups`/`allowedUsers` are set). Used to collect IDs for the config.
-3. Allowlist gate: groups must be in `allowedGroups`, DM senders in `allowedUsers`; others are silently ignored.
-4. File messages (`content` is an object with `href`/`title`): sender must be in `allowedUploaders`, extension in `allowedExt` → `downloadFile` (to `tmp/`, size-capped by `maxFileMB`) → `runExtractor` → `sendToAdmin` with every `.xlsx` found in a per-run `out/<timestamp>/` dir; source file is deleted in `finally`.
-5. Text messages: in groups require a bot mention (compared against `ownId`) or a `triggerKeywords` match; DMs always qualify. Per-sender `userCooldownSec` applies; then `answerFaq` → `say`.
-
-Cross-cutting design points:
-- All outbound actions go through `enqueue()`: a serial promise queue with random delay (`minDelayMs`–`maxDelayMs`) and a `maxActionsPerMinute` cap. Over-limit tasks are **dropped**, not deferred. These exist to reduce account-ban risk — don't bypass them.
-- `dryRun: true` makes `say`/`sendToAdmin` only print `[dryRun] ...`. The checked-in config defaults to `dryRun`, `debug`, `logContent`, and `discoveryMode` all `true`.
-- The extractor is an external project (DataExtractionTool, Python) invoked with `execFile` (no shell). `extractor.args` supports placeholders `{input}`, `{outputDir}`, `{outputFile}`; `cwd` is a machine-specific absolute path.
-- `answerFaq` calls the Anthropic API directly with `fetch` (no SDK). The system prompt constrains answers to `<faq>`, and the user question is wrapped in `<cau_hoi>` as untrusted data; the model returns `[CHUYEN_NGUOI]` to escalate, which maps to the fixed fallback.
-- `out/` is cleaned hourly by `cleanupOldOutputs` (`outputRetentionHours`); `tmp/` holds transient downloads.
+- Start 9router: `9router -H 127.0.0.1 -n -l --skip-update` (needs a keep-alive process; it exits without a TTY unless `-n -l` are given). Scheduled task `9router` runs it at logon.
+- Start gateway: `hermes gateway run`, from the **default** profile. Hermes allows one host gateway for all profiles; `hermes -p cskh gateway run` is refused. Stop with `hermes gateway stop`.
+- Inspect the bot: `hermes -p cskh chat -q "..."`, logs at `~/.hermes/profiles/cskh/logs/{gateway,agent}.log`. A healthy FAQ turn logs `tool_turns=0`.
 
 ## Gotchas
 
-- `zca-js` message shapes (`title`, `href`, `mentions`), `getOwnId`, listener event names, and the `attachments` option for sending files are unverified against real logs and may vary by version — check with `debug` output when something doesn't fire. File download may also need auth cookies.
-- The files processed contain personal data: logs should record IDs/names/actions, not message content, unless `logContent` is deliberately enabled for testing. `config.json` holds real IDs once filled in — don't commit real ones or share it.
-- Don't log in to Zalo Web with the bot's account while it runs (kills the listener).
-- `.gitignore` currently ignores only `node_modules/` and `.env`; `tmp/`, `out/`, and `qr.png` (login QR) are not ignored.
+- The host gateway does **not** load the `cskh` profile's `.env`. Plugin policy (`ZALO_DM_POLICY`, `ZALO_ALLOWED_USERS`) set in `.env` is ignored; set `platforms.zalo.extra.dm_policy` / `allowed_users` in the profile's `config.yaml`. `ZALO_BOT_TOKEN` in `.env` does work.
+- Tool lockdown: `platform_toolsets.<platform>` must be `[]` for every platform **including `zalo`**; if the key is missing Hermes uses the full default toolset (terminal, file, code execution). `hermes tools disable --platform X` only worked for `cli`, so edit `config.yaml` directly and verify with `hermes -p cskh tools list --platform zalo`.
+- The `custom` provider ignores `OPENAI_API_KEY`; the 9router key goes in `model.api_key` in the profile's `config.yaml`. Don't also put it in `OPENAI_API_KEY` (other features may send it to OpenAI).
+- `dm_policy: pairing` asks for a captcha whose "passed" state is in memory only, so every gateway restart re-prompts. Use `allowlist` or `open`.
+- The 9router `cc/` (Claude Code) provider injects its own ~2000-token system prompt per call.
+- Never put real keys, tokens or Zalo user IDs in the repo or commit them. The 9router key and Zalo bot token were pasted into a chat during setup; recommend rotating them.
+- Not yet done: the `HermesGateway` scheduled task (auto-start gateway at logon) was blocked and left for the owner to run; `[CHUYEN_NGUOI]` is sent verbatim to customers; no tag filter or escalation to an admin.

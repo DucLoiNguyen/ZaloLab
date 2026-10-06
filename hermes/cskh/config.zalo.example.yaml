@@ -1,0 +1,18 @@
+# Đoạn cấu hình thêm vào ~/.hermes/profiles/cskh/config.yaml (trong WSL Ubuntu).
+# Không chứa bí mật. ZALO_BOT_TOKEN đặt riêng trong ~/.hermes/profiles/cskh/.env
+#
+# Phải đặt ở đây, không đặt ZALO_DM_POLICY / ZALO_ALLOWED_USERS trong .env:
+# gateway chung chạy từ profile mặc định nên không nạp .env của profile cskh.
+
+# Tắt toàn bộ tool cho mọi nền tảng: bot chỉ được trả lời văn bản.
+# Mỗi nền tảng phải liệt kê, và `zalo` bắt buộc phải có (nếu thiếu sẽ dùng bộ tool mặc định).
+platform_toolsets:
+  cli: []
+  zalo: []
+
+platforms:
+  zalo:
+    enabled: true
+    extra:
+      dm_policy: allowlist          # pairing | open | allowlist
+      allowed_users: ["<ID Zalo của quản trị viên>"]

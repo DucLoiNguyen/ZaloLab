@@ -1,81 +1,105 @@
-# Setup Hermes Agent + 9router trên VPS
+# Cài đặt Hermes Agent + 9router + plugin Zalo (WSL Ubuntu)
 
-Các lệnh dưới đây lấy từ tài liệu công khai của từng dự án; **kiểm tra lại với tài liệu chính thức** trước khi chạy vì phiên bản có thể thay đổi.
-- 9router: https://github.com/decolua/9router (docs: https://docs.9router.com/)
-- Hermes Agent (Nous Research): script cài đặt chính thức `https://hermes-agent.nousresearch.com/install.sh`
+Đây là các bước đã chạy thực tế trên Windows 11 + WSL2 Ubuntu 24.04. Trên VPS Ubuntu thì làm tương tự, bỏ phần Task Scheduler và dùng systemd.
 
-Kiến trúc đích:
+- 9router: https://github.com/decolua/9router
+- Hermes Agent: https://hermes-agent.nousresearch.com
+- Plugin Zalo: https://github.com/moken627-hub/hermes-plugin-zalo (catalog Hermes, ghim SHA)
 
 ```
-Zalo / Teams / Fanpage ──► (bridge: bot.js hoặc Hermes gateway) ──► Hermes ──► 9router ──► ChatGPT Plus / Claude
+Zalo ──► zalo-platform ──► Hermes (profile cskh) ──► 9router ──► Claude
 ```
 
-## 1. Chuẩn bị VPS
+## 1. WSL và Node
 
-- Ubuntu 22.04+ , ≥ 2 vCPU / 4 GB RAM, người dùng không phải root, firewall chỉ mở SSH (và 443 nếu cần webhook).
-- Cài Node.js LTS (cho 9router và bot.js).
+```powershell
+wsl --install -d Ubuntu-24.04
+```
 
-## 2. Cài 9router
+Trong Ubuntu, cài Node bằng nvm. **Không dùng Node của Windows** (WSL mặc định thấy `npm` Windows qua `/mnt/...` và sẽ lỗi):
 
 ```bash
-npm install -g 9router
-9router            # mặc định mở dashboard + endpoint OpenAI-compatible tại http://localhost:20128/v1
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.nvm/nvm.sh && nvm install --lts
+sudo apt-get install -y libatomic1   # Hermes cần thư viện này cho Node của nó
 ```
 
-- Giữ 9router **chỉ lắng nghe localhost** (không mở cổng 20128 ra internet). Cần truy cập dashboard từ xa thì dùng SSH tunnel: `ssh -L 20128:localhost:20128 user@vps`.
-- Chạy nền bằng systemd (`/etc/systemd/system/9router.service`, `ExecStart=$(which 9router)`, `Restart=always`) hoặc pm2.
+## 2. 9router
 
-## 3. Thêm tài khoản ChatGPT Plus / Claude vào 9router
+```bash
+npm install -g --allow-scripts=9router 9router
+9router -H 127.0.0.1 -n -l --skip-update
+```
 
-1. Mở dashboard 9router (qua SSH tunnel) → mục Providers.
-2. Chọn provider kiểu subscription (Codex/ChatGPT hoặc Claude Code) → đăng nhập OAuth bằng tài khoản của bạn.
-3. Tạo một API key trong dashboard cho Hermes / bot dùng; tạo **một combo/model alias** (ví dụ `zalolab-chat`) với thứ tự fallback mong muốn.
-4. Thử: 
+- Bind `127.0.0.1`: mặc định nó bind `0.0.0.0` và lộ ra LAN.
+- Không có `-n -l` thì nó thoát ngay khi chạy không có terminal.
+- Mở `http://localhost:20128` → Providers → đăng nhập OAuth ChatGPT Plus hoặc Claude, tạo API key và combo `ZaloLab`.
+- Thử: `curl http://localhost:20128/v1/models -H "Authorization: Bearer <key>"`.
+- Provider `cc/` (Claude Code) tự chèn system prompt riêng, khoảng 2000 token mỗi lượt.
+- Dùng gói subscription cá nhân qua router có thể vi phạm điều khoản nhà cung cấp; chatbot lưu lượng cao nên cân nhắc API key chính thức.
+
+## 3. Hermes
+
+```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh -o ~/hermes-install.sh
+less ~/hermes-install.sh          # đọc trước khi chạy
+bash ~/hermes-install.sh --non-interactive
+```
+
+Trỏ về 9router (profile mặc định, rồi nhân bản sang profile `cskh`):
+
+```bash
+hermes config set model.provider custom
+hermes config set model.base_url http://localhost:20128/v1
+hermes config set model.default ZaloLab
+hermes config set model.api_key <key-9router>
+hermes profile create cskh --clone --description "Chatbot cham soc khach hang"
+```
+
+`provider: custom` không đọc `OPENAI_API_KEY`; key phải ở `model.api_key`.
+
+## 4. Persona và khóa tool
+
+```bash
+cp hermes/cskh/SOUL.md ~/.hermes/profiles/cskh/SOUL.md
+```
+
+Rồi thêm phần `platform_toolsets` ở [hermes/cskh/config.zalo.example.yaml](../hermes/cskh/config.zalo.example.yaml) vào `~/.hermes/profiles/cskh/config.yaml`, và đặt **mọi** nền tảng thành `[]`, kể cả `zalo`. Kiểm tra: `hermes -p cskh tools list --platform zalo` phải không còn tool nào `enabled`.
+
+## 5. Plugin Zalo
+
+1. Tạo bot tại https://bot.zaloplatforms.com và lấy token `numeric_id:secret`.
+2. Cài và bật:
    ```bash
-   curl http://localhost:20128/v1/chat/completions \
-     -H "Authorization: Bearer <key-9router>" -H "content-type: application/json" \
-     -d '{"model":"zalolab-chat","messages":[{"role":"user","content":"ping"}]}'
+   hermes -p cskh plugins install zalo-platform
+   hermes -p cskh plugins enable zalo-platform
+   echo 'ZALO_BOT_TOKEN=<token>' >> ~/.hermes/profiles/cskh/.env
+   chmod 600 ~/.hermes/profiles/cskh/.env
    ```
+3. Thêm khối `platforms.zalo` ở [hermes/cskh/config.zalo.example.yaml](../hermes/cskh/config.zalo.example.yaml) vào `config.yaml` của profile `cskh`. Chính sách truy cập và allowlist **phải đặt ở đây**, không phải trong `.env`, vì gateway chung không nạp `.env` của profile.
+4. Chạy gateway từ profile **mặc định** (Hermes chỉ cho một gateway cho cả máy):
+   ```bash
+   hermes gateway run
+   ```
+5. Nhắn thử cho bot. Log: `~/.hermes/profiles/cskh/logs/gateway.log`.
 
-Lưu ý: dùng gói subscription cá nhân qua router có thể vi phạm điều khoản của nhà cung cấp hoặc bị giới hạn lưu lượng; chatbot chăm sóc khách hàng lưu lượng cao nên cân nhắc API key chính thức.
+Chính sách `dm_policy`: `allowlist` (chỉ ID trong `allowed_users`), `open` (ai cũng nhắn được), `pairing` (captcha, nhưng trạng thái đã qua captcha mất khi restart gateway).
 
-## 4. Cài Hermes Agent và trỏ về 9router
+## 6. Chạy tự động (Windows)
 
-```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-hermes setup       # chọn provider "custom / OpenAI-compatible"
+Hermes gateway và 9router cần một tiến trình giữ WSL sống. Đăng ký hai task Task Scheduler chạy khi đăng nhập:
+
+```powershell
+$s = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+
+$a = New-ScheduledTaskAction -Execute "wsl.exe" -Argument '-d Ubuntu-24.04 -e bash -lc "source ~/.nvm/nvm.sh; exec 9router -H 127.0.0.1 -n -l --skip-update"'
+Register-ScheduledTask -TaskName "9router" -Action $a -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME) -Settings $s
+
+$a = New-ScheduledTaskAction -Execute "wsl.exe" -Argument '-d Ubuntu-24.04 -e bash -lc "export PATH=$HOME/.local/bin:$PATH; exec hermes gateway run"'
+$t = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME; $t.Delay = "PT30S"
+Register-ScheduledTask -TaskName "HermesGateway" -Action $a -Trigger $t -Settings $s
 ```
 
-Trong wizard (hoặc file cấu hình của Hermes) nhập:
-- Base URL: `http://localhost:20128/v1`
-- API key: key tạo ở bước 3
-- Model: `zalolab-chat` (alias trong 9router). Hermes cần model có context ≥ 64k token.
-
-Chạy gateway nhắn tin 24/7: `hermes gateway setup`, rồi chạy dưới systemd.
-
-## 5. Danh sách kênh cần chuẩn bị
-
-| Kênh | Việc cần chuẩn bị | Cách nối |
-|---|---|---|
-| Zalo | Nick phụ, ID nhóm/người (chế độ `discoveryMode` của bot.js) | `bot.js` (zca-js, không chính thức, có rủi ro khóa nick) |
-| Microsoft Teams | Đăng ký Azure Bot / app registration, tenant ID, App ID/secret | Hermes gateway nếu có hỗ trợ Teams, nếu không viết bridge riêng |
-| Facebook Fanpage | Meta app, Page access token, webhook (cần HTTPS + domain), quyền `pages_messaging` | Webhook → Hermes/bridge |
-
-Hermes gateway hỗ trợ sẵn một số nền tảng (Telegram, Discord, Slack, WhatsApp, Signal, email…); **Zalo, Teams, Fanpage cần kiểm tra trong tài liệu hiện hành**. Phương án chắc chắn: giữ mỗi kênh là một bridge mỏng (như `bot.js`) gọi chung một endpoint OpenAI-compatible.
-
-## 6. Dùng 9router từ bot.js ngay (chưa cần Hermes)
-
-Trong [config.json](../config.json):
-
-```json
-"llm": { "baseUrl": "http://localhost:20128/v1", "apiKeyEnv": "NINEROUTER_API_KEY", "model": "zalolab-chat" }
-```
-
-```bash
-export NINEROUTER_API_KEY=<key>   # PowerShell: $env:NINEROUTER_API_KEY="<key>"
-node bot.js
-```
-
-Nếu `llm.baseUrl` rỗng, bot quay lại gọi trực tiếp API Anthropic bằng `ANTHROPIC_API_KEY`.
+Gateway trễ 30 giây để 9router lên trước. Dừng một task: `Stop-ScheduledTask <tên>`; gỡ: `Unregister-ScheduledTask <tên> -Confirm:$false`.
 
 Guardrails: xem [GUARDRAILS.md](GUARDRAILS.md).
