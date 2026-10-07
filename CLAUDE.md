@@ -40,4 +40,5 @@ Run WSL commands from PowerShell with `wsl -e bash <script>`; inline `bash -c '.
 - `dm_policy: pairing` asks for a captcha whose "passed" state is in memory only, so every gateway restart re-prompts. Use `allowlist` or `open`.
 - The 9router `cc/` (Claude Code) provider injects its own ~2000-token system prompt per call.
 - Never put real keys, tokens or Zalo user IDs in the repo or commit them. The 9router key and Zalo bot token were pasted into a chat during setup; recommend rotating them.
-- Not yet done: the `HermesGateway` scheduled task (auto-start gateway at logon) was blocked and left for the owner to run; `[CHUYEN_NGUOI]` is sent verbatim to customers; no tag filter or escalation to an admin.
+- Not yet done: the `HermesGateway` scheduled task (auto-start gateway at logon) was blocked and left for the owner to run; no tag filter or escalation to an admin (the bot has no tools, so it can't notify anyone; it only appends a `[Chuyển: CS|Product|Pháp lý]` label).
+- FAQ content in `SOUL.md` comes from the `FAQ_Request` sheet (not `FAQ_Master`). Only FAQ-006 has an approved answer; FAQ-001..004 and one unnumbered question are forward-only until the owner supplies approved answers. FAQ-005 is cancelled, don't add it. Never invent product steps/UI names to fill them.

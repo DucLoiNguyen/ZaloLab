@@ -36,13 +36,14 @@ Xem [docs/SETUP-VPS.md](docs/SETUP-VPS.md) cho toàn bộ cách cài và chạy.
 
 ## Bảo mật
 
-- Bot không có tool nào (terminal, file, web...). Chỉ trả lời văn bản từ FAQ; câu ngoài phạm vi trả `[CHUYEN_NGUOI]`.
+- Bot không có tool nào (terminal, file, web...). Chỉ trả lời văn bản từ FAQ; câu ngoài phạm vi hoặc chưa có nội dung thì hướng người dùng liên hệ quản trị viên, kèm nhãn `[Chuyển: CS|Product|Pháp lý]`.
 - Chính sách truy cập là `allowlist`: chỉ ID trong `allowed_users` được nhắn. Danh sách này cũng cấp quyền cho lệnh quản trị của plugin (`/kick`, `/warn`...), nên chỉ đưa tài khoản admin vào.
 - Chỉ đưa vào FAQ nội dung được phép công khai.
 - Không chia sẻ key 9router hay token Zalo. Key đã từng xuất hiện trong cuộc trò chuyện thì nên tạo lại.
 
 ## Giới hạn đã biết
 
-- `[CHUYEN_NGUOI]` hiện được gửi nguyên văn cho khách; chưa có câu xin lỗi hoặc thông báo cho admin.
+- Bot không báo được cho admin hay đơn vị phụ trách; nó chỉ gắn nhãn `[Chuyển: ...]` trong câu trả lời.
+- FAQ mới chỉ có 1 mục trả lời được (FAQ-006); 5 mục còn lại chờ nội dung (xem cuối [SOUL.md](hermes/cskh/SOUL.md)).
 - Chưa có lọc theo tag (`requiredTags`) và từ khóa nhạy cảm (`escalateKeywords`) như bot cũ; hiện chỉ dựa vào persona.
 - Bot chỉ chạy khi cả 9router và gateway đang chạy.
