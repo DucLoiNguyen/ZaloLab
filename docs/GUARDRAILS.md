@@ -22,7 +22,7 @@ Nằm trong [hermes/cskh/SOUL.md](../hermes/cskh/SOUL.md):
 6. Không hỏi hay lặp lại thông tin cá nhân (mật khẩu, CCCD, số tài khoản, OTP).
 7. Khiếu nại, hoàn tiền, kiện tụng, lừa đảo → mẫu chuyển tiếp nhãn CS.
 
-Chưa thử lại sau khi đổi sang FAQ mới: cần kiểm tra bằng `hermes -p cskh chat -q "..."` với một câu có nội dung, một câu thuộc "chưa có nội dung", một câu pháp lý và một câu tiêm lệnh.
+Đã thử bằng `hermes -p cskh chat -q "..."` với FAQ mới (7 câu: pháp lý ×3, FAQ-006, câu chưa có nội dung, khiếu nại, tiêm lệnh): đều đúng, không dùng tool, và mọi tin chuyển tiếp đều kết thúc bằng nhãn `[Chuyển: ...]`. Chưa thử đầu cuối trên Zalo thật. Mỗi khi sửa SOUL.md nên thử lại đủ các loại câu này.
 
 ## 3. Chuyển cho người
 
