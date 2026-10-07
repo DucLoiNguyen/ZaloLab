@@ -20,13 +20,13 @@ README and docs are in Vietnamese; keep new user-facing text and docs in Vietnam
 
 ## Repo contents
 
-- [hermes/cskh/SOUL.md](hermes/cskh/SOUL.md): the canonical persona, guardrails and FAQ text. Deployed by copying to `~/.hermes/profiles/cskh/SOUL.md`; restart the gateway after changes. The FAQ is embedded here, so there's no separate FAQ file.
+- [hermes/cskh/SOUL.md](hermes/cskh/SOUL.md): the canonical persona, guardrails and FAQ text. Deployed by copying to `~/.hermes/profiles/cskh/SOUL.md`; restart the gateway after changes. The FAQ is embedded here (Hermes only loads `SOUL.md`), so there's no separate FAQ file. Structure: 8 rules → forwarding template → "FAQ đã sẵn sàng" (answerable) → "FAQ chưa có nội dung" (forward-only table).
 - [hermes/cskh/config.zalo.example.yaml](hermes/cskh/config.zalo.example.yaml): config snippet for the profile (no secrets).
 - [docs/SETUP-VPS.md](docs/SETUP-VPS.md), [docs/GUARDRAILS.md](docs/GUARDRAILS.md).
 
 ## Operating notes (WSL)
 
-Run WSL commands from PowerShell with `wsl -e bash <script>`; inline `bash -c '...'` loses quotes and `$VARS` to PowerShell, so put multi-line commands in a script file under the scratchpad.
+The runtime is on the owner's machine; from some Claude sessions `wsl` reports "not installed", in which case logs can't be inspected, so ask the owner to run commands and paste output. Otherwise run WSL commands from PowerShell with `wsl -e bash <script>`; inline `bash -c '...'` loses quotes and `$VARS` to PowerShell, so put multi-line commands in a script file under the scratchpad.
 
 - Start 9router: `9router -H 127.0.0.1 -n -l --skip-update` (needs a keep-alive process; it exits without a TTY unless `-n -l` are given). Scheduled task `9router` runs it at logon.
 - Start gateway: `hermes gateway run`, from the **default** profile. Hermes allows one host gateway for all profiles; `hermes -p cskh gateway run` is refused. Stop with `hermes gateway stop`.
@@ -39,6 +39,9 @@ Run WSL commands from PowerShell with `wsl -e bash <script>`; inline `bash -c '.
 - The `custom` provider ignores `OPENAI_API_KEY`; the 9router key goes in `model.api_key` in the profile's `config.yaml`. Don't also put it in `OPENAI_API_KEY` (other features may send it to OpenAI).
 - `dm_policy: pairing` asks for a captcha whose "passed" state is in memory only, so every gateway restart re-prompts. Use `allowlist` or `open`.
 - The 9router `cc/` (Claude Code) provider injects its own ~2000-token system prompt per call.
+- Hermes slash commands (e.g. `/stop`) and the plugin's admin commands (`/kick`, `/warn`...) are available to anyone in `allowed_users`, so keep that list to admins. Whether `/stop` only interrupts the current turn or something broader is unverified; if the bot goes silent, check `pgrep -af "hermes|9router"` and restart per the notes above.
+- Group behavior is undocumented: the plugin mentions a per-group "silent" mode (reply only when @tagged or called by name), but whether the bot receives all group messages by default is unverified. Test in a throwaway group and read `gateway.log` before relying on it; don't make the bot answer every group message.
+- Windows-side Node (for local checks only) lives at `C:\Users\Loind\Documents\node-v24.21.0-win-x64` and was added to the user PATH; it isn't used by the runtime (that's nvm Node inside WSL).
 - Never put real keys, tokens or Zalo user IDs in the repo or commit them. The 9router key and Zalo bot token were pasted into a chat during setup; recommend rotating them.
 - Not yet done: the `HermesGateway` scheduled task (auto-start gateway at logon) was blocked and left for the owner to run; no tag filter or escalation to an admin (the bot has no tools, so it can't notify anyone; it only appends a `[Chuyển: CS|Product|Pháp lý]` label).
 - FAQ content in `SOUL.md` comes from the `FAQ_Request` sheet (not `FAQ_Master`). Only FAQ-006 has an approved answer; FAQ-001..004 and one unnumbered question are forward-only until the owner supplies approved answers. FAQ-005 is cancelled, don't add it. Never invent product steps/UI names to fill them.
