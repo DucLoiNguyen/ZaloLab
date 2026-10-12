@@ -100,6 +100,6 @@ $t = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME; $t.Delay = "PT30S"
 Register-ScheduledTask -TaskName "HermesGateway" -Action $a -Trigger $t -Settings $s
 ```
 
-Gateway trễ 30 giây để 9router lên trước. Dừng một task: `Stop-ScheduledTask <tên>`; gỡ: `Unregister-ScheduledTask <tên> -Confirm:$false`.
+Gateway trễ 30 giây để 9router lên trước. Hai task chỉ chạy sau khi bạn **đăng nhập** Windows; khởi động ngay không cần reboot bằng `Start-ScheduledTask <tên>`. Đã kiểm tra: khởi động `HermesGateway` thì gateway lên và bot kết nối Zalo. Chưa thử qua một lần reboot thật. Dừng một task: `Stop-ScheduledTask <tên>`; gỡ: `Unregister-ScheduledTask <tên> -Confirm:$false`.
 
 Guardrails: xem [GUARDRAILS.md](GUARDRAILS.md).

@@ -21,6 +21,7 @@ ZaloLab/
 │  └─ config.zalo.example.yaml   # mẫu cấu hình Zalo và tắt tool
 └─ docs/
    ├─ SETUP-VPS.md               # cài 9router, Hermes, plugin Zalo, chạy tự động
+   ├─ HERMES.md                  # cách tương tác với Hermes bằng dòng lệnh
    └─ GUARDRAILS.md              # quy tắc trả lời và chuyển người
 ```
 
@@ -32,7 +33,8 @@ Xem [docs/SETUP-VPS.md](docs/SETUP-VPS.md) cho toàn bộ cách cài và chạy.
 
 - **Sửa FAQ:** sửa [hermes/cskh/SOUL.md](hermes/cskh/SOUL.md), chép vào `~/.hermes/profiles/cskh/SOUL.md` trong WSL rồi khởi động lại gateway.
 - **Xem log:** `~/.hermes/profiles/cskh/logs/gateway.log` và `agent.log`.
-- **Khởi động lại gateway:** `hermes gateway stop` rồi `hermes gateway run` (chạy từ profile mặc định, gateway này phục vụ luôn `cskh`).
+- **Khởi động lại gateway:** `Stop-ScheduledTask HermesGateway` rồi `Start-ScheduledTask HermesGateway` trong PowerShell. Chạy tay thì `hermes gateway stop` rồi `hermes gateway run` (từ profile mặc định, gateway này phục vụ luôn `cskh`).
+- **Sau khi bật máy:** hai task Task Scheduler `9router` và `HermesGateway` tự chạy khi bạn **đăng nhập** Windows (gateway trễ 30 giây). Bot tự lên, không cần làm gì. Kiểm tra: `Get-ScheduledTask 9router,HermesGateway` và xem dòng `Zalo: connected` trong `gateway.log`. Máy ngủ đông hoặc tắt thì bot ngừng.
 
 ## Bảo mật
 
